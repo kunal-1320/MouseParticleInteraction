@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Interactive Node Simulation</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #000;
+      overflow: hidden;
+    }
+
+    #particle-canvas {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+    }
+
+    #settings-bar {
+      position: absolute;
+      left: 20px;
+      top: 60px;
+      background-color: rgba(255, 255, 255, 0.8);
+      padding: 20px;
+      border-radius: 5px;
+      z-index: 1;
+      display: none;
+    }
+
+    #settings-button {
+      position: absolute;
+      left: 20px;
+      top: 20px;
+      background-color: rgba(255, 255, 255, 0.8);
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      z-index: 1;
+    }
+
+    #close-button {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      cursor: pointer;
+    }
+
+    .setting {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .setting label {
+      margin-right: 10px;
+    }
+
+    .setting input {
+      width: 100px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="particle-canvas"></canvas>
+
+  <div id="settings-button">
+    Settings
+  </div>
+
+  <div id="settings-bar">
+    <div id="close-button">
+      <i class="fas fa-times"></i>
+    </div>
+    <div class="setting">
+      <label for="particleCount">Particle Count:</label>
+      <input type="range" id="particleCount" min="10" max="200" value="50" step="10">
+    </div>
+    <div class="setting">
+      <label for="particleSize">Particle Size:</label>
+      <input type="range" id="particleSize" min="5" max="20" value="10" step="1">
+    </div>
+    <div class="setting">
+      <label for="connectionDistance">Connection Distance:</label>
+      <input type="range" id="connectionDistance" min="50" max="300" value="150" step="10">
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('particle-canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let particleCount = 50;
+    let particleSize = 10;
+    let connectionDistance = 150;
+    let particles = [];
+
+    const particleCountInput = document.getElementById('particleCount');
+    const particleSizeInput = document.getElementById('particleSize');
+    const connectionDistanceInput = document.getElementById('connectionDistance');
+
+    particleCountInput.addEventListener('input', () => {
+      particleCount = parseInt(particleCountInput.value);
+      initParticles();
+    });
+
+    particleSizeInput.addEventListener('input', () => {
+      particleSize = parseInt(particleSizeInput.value);
+    });
+
+    connectionDistanceInput.addEventListener('input', () => {
+      connectionDistance = parseInt(connectionDistanceInput.value);
+    });
+
+    function initParticles() {
+      particles = [];
+      for (let i = 0; i < particleCount; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          vx: (Math.random() - 0.5) * 0.5, // Initial velocity for a more dynamic look
+          vy: (Math.random() - 0.5) * 0.5
+        });
+      }
+    }
+
+    let mouseX = canvas.width / 2;
+    let mouseY = canvas.height / 2;
+    let isMouseInteracting = false;
+
+    canvas.addEventListener('mousemove', (event) => {
+      mouseX = event.clientX;
+      mouseY = event.clientY;
+      isMouseInteracting = true;
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      isMouseInteracting = false;
+    });
+
+    function updateParticles() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Optimization: Calculate connection distance squared only once
+      const connectionDistanceSquared = connectionDistance * connectionDistance;
+
+      for (let i = 0; i < particles.length; i++) {
+        const particle1 = particles[i];
+
+        // Apply mouse interaction only when needed
+        if (isMouseInteracting) {
+          const dx = mouseX - particle1.x;
+          const dy = mouseY - particle1.y;
+          const distanceSquared = dx * dx + dy * dy;
+          if (distanceSquared < 10000) { // 100 * 100
+            const force = (10000 - distanceSquared) / 10000 * 0.5;
+            particle1.vx -= dx * force;
+            particle1.vy -= dy * force;
+          }
+        }
+
+        // Limit velocity for smoother movement
+        particle1.vx *= 0.95;
+        particle1.vy *= 0.95;
+
+        particle1.x += particle1.vx;
+        particle1.y += particle1.vy;
+
+        // Keep particles within the canvas boundaries
+        if (particle1.x < 0 || particle1.x > canvas.width) particle1.vx *= -1;
+        if (particle1.y < 0 || particle1.y > canvas.height) particle1.vy *= -1;
+
+        // Draw connections
+        for (let j = i + 1; j < particles.length; j++) {
+          const particle2 = particles[j];
+          const dx = particle1.x - particle2.x;
+          const dy = particle1.y - particle2.y;
+          const distanceSquared = dx * dx + dy * dy;
+
+          if (distanceSquared < connectionDistanceSquared) {
+            const opacity = 1 - distanceSquared / connectionDistanceSquared;
+            ctx.beginPath();
+            ctx.moveTo(particle1.x, particle1.y);
+            ctx.lineTo(particle2.x, particle2.y);
+            ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
+            ctx.stroke();
+          }
+        }
+
+        // Draw particle
+        ctx.beginPath();
+        ctx.arc(particle1.x, particle1.y, particleSize, 0, 2 * Math.PI);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+      }
+
+      requestAnimationFrame(updateParticles);
+    }
+
+    // Toggle settings bar
+    const settingsButton = document.getElementById('settings-button');
+    const settingsBar = document.getElementById('settings-bar');
+    const closeButton = document.getElementById('close-button');
+
+    settingsButton.addEventListener('click', () => {
+      settingsBar.style.display = settingsBar.style.display === 'none' ? 'block' : 'none';
+    });
+
+    closeButton.addEventListener('click', () => {
+      settingsBar.style.display = 'none';
+    });
+
+    initParticles();
+    updateParticles();
+  </script>
+
+  <script src="https://kit.fontawesome.com/your-font-awesome-kit.js" crossorigin="anonymous"></script>
+</body>
+</html>
