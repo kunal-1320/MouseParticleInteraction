@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Interactive Particle Simulation</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #000;
+      overflow: hidden;
+    }
+
+    #particle-canvas {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+    }
+
+    #settings-bar {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background-color: rgba(255, 255, 255, 0.8);
+      padding: 20px;
+      border-radius: 5px;
+      z-index: 1;
+      display: none;
+    }
+
+    #settings-button {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background-color: rgba(255, 255, 255, 0.8);
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      z-index: 1;
+    }
+
+    #close-button {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      cursor: pointer;
+    }
+
+    .setting {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .setting label {
+      margin-right: 10px;
+    }
+
+    .setting input {
+      width: 100px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="particle-canvas"></canvas>
+
+  <div id="settings-button">
+    Settings
+  </div>
+
+  <div id="settings-bar">
+    <div id="close-button">
+      <i class="fas fa-times"></i>
+    </div>
+    <div class="setting">
+      <label for="particleCount">Particle Count:</label>
+      <input type="range" id="particleCount" min="100" max="500" value="300" step="10">
+    </div>
+    <div class="setting">
+      <label for="particleSize">Particle Size:</label>
+      <input type="range" id="particleSize" min="5" max="20" value="12" step="1">
+    </div>
+    <div class="setting">
+      <label for="particleSpeed">Particle Speed:</label>
+      <input type="range" id="particleSpeed" min="0.5" max="3" value="1.5" step="0.1">
+    </div>
+    <div class="setting">
+      <label for="repulsionRadius">Repulsion Radius:</label>
+      <input type="range" id="repulsionRadius" min="50" max="300" value="150" step="10">
+    </div>
+    <div class="setting">
+      <label for="repulsionForce">Repulsion Force:</label>
+      <input type="range" id="repulsionForce" min="0.1" max="1" value="0.6" step="0.1">
+    </div>
+    <div class="setting">
+      <label for="returnForce">Return Force:</label>
+      <input type="range" id="returnForce" min="0.01" max="0.1" value="0.02" step="0.01">
+    </div>
+  </div>
+
+  <script>
+    // Get the canvas element
+    const canvas = document.getElementById('particle-canvas');
+    const ctx = canvas.getContext('2d');
+
+    // Set the canvas size to the window size
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // Particle properties
+    let particleCount = 300;
+    let particleSize = 12;
+    let particleSpeed = 1.5;
+    let repulsionRadius = 150;
+    let repulsionForce = 0.6;
+    let returnForce = 0.02;
+
+    // Get settings from the UI
+    const particleCountInput = document.getElementById('particleCount');
+    const particleSizeInput = document.getElementById('particleSize');
+    const particleSpeedInput = document.getElementById('particleSpeed');
+    const repulsionRadiusInput = document.getElementById('repulsionRadius');
+    const repulsionForceInput = document.getElementById('repulsionForce');
+    const returnForceInput = document.getElementById('returnForce');
+
+    particleCountInput.addEventListener('input', () => {
+      particleCount = parseInt(particleCountInput.value);
+      initParticles();
+    });
+
+    particleSizeInput.addEventListener('input', () => {
+      particleSize = parseInt(particleSizeInput.value);
+    });
+
+    particleSpeedInput.addEventListener('input', () => {
+      particleSpeed = parseFloat(particleSpeedInput.value);
+    });
+
+    repulsionRadiusInput.addEventListener('input', () => {
+      repulsionRadius = parseInt(repulsionRadiusInput.value);
+    });
+
+    repulsionForceInput.addEventListener('input', () => {
+      repulsionForce = parseFloat(repulsionForceInput.value);
+    });
+
+    returnForceInput.addEventListener('input', () => {
+      returnForce = parseFloat(returnForceInput.value);
+    });
+
+    // Particle array
+    const particles = [];
+
+    // Initialize particles
+    function initParticles() {
+      particles.length = 0;
+      for (let i = 0; i < particleCount; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          vx: 0,
+          vy: 0,
+          initialX: Math.random() * canvas.width,
+          initialY: Math.random() * canvas.height,
+          color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+          subColor: `hsl(${Math.random() * 360}, 100%, 70%)`
+        });
+      }
+    }
+
+    initParticles();
+
+    // Mouse position
+    let mouseX = 0;
+    let mouseY = 0;
+    let isMouseInteracting = false;
+
+    // Draw a 5-pointed star
+    function drawStar(x, y, size, color, subColor) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.beginPath();
+      ctx.moveTo(0, -size);
+      for (let i = 0; i < 5; i++) {
+        ctx.rotate(Math.PI / 5);
+        ctx.lineTo(0, -size);
+        ctx.rotate(Math.PI / 5);
+        ctx.lineTo(0, size / 3);
+      }
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+
+      // Draw sub-color
+      ctx.beginPath();
+      ctx.moveTo(0, -size * 0.8);
+      for (let i = 0; i < 5; i++) {
+        ctx.rotate(Math.PI / 5);
+        ctx.lineTo(0, -size * 0.8);
+        ctx.rotate(Math.PI / 5);
+        ctx.lineTo(0, size / 4);
+      }
+      ctx.closePath();
+      ctx.fillStyle = subColor;
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    // Update particle positions based on mouse position
+    function updateParticles() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let i = 0; i < particles.length; i++) {
+        const particle = particles[i];
+
+        // Smooth return to initial position
+        const dx = particle.initialX - particle.x;
+        const dy = particle.initialY - particle.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance > 1) {
+          particle.vx += dx * returnForce;
+          particle.vy += dy * returnForce;
+        } else {
+          particle.vx = 0;
+          particle.vy = 0;
+          particle.x = particle.initialX;
+          particle.y = particle.initialY;
+        }
+
+        // Limit velocity to prevent erratic movement
+        const velocity = Math.sqrt(particle.vx * particle.vx + particle.vy * particle.vy);
+        if (velocity > particleSpeed) {
+          particle.vx *= particleSpeed / velocity;
+          particle.vy *= particleSpeed / velocity;
+        }
+
+        // Repulsion
+        if (isMouseInteracting) {
+          const dx = mouseX - particle.x;
+          const dy = mouseY - particle.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          if (distance < repulsionRadius) {
+            const force = (repulsionRadius - distance) / repulsionRadius * repulsionForce;
+            particle.vx -= dx * force;
+            particle.vy -= dy * force;
+          }
+        }
+
+        // Keep particles within the canvas boundaries
+        particle.x = Math.max(0, Math.min(canvas.width, particle.x + particle.vx));
+        particle.y = Math.max(0, Math.min(canvas.height, particle.y + particle.vy));
+
+        drawStar(particle.x, particle.y, particleSize, particle.color, particle.subColor);
+      }
+
+      requestAnimationFrame(updateParticles);
+    }
+
+    // Update mouse position and interaction state
+    document.addEventListener('mousemove', (event) => {
+      mouseX = event.clientX;
+      mouseY = event.clientY;
+      isMouseInteracting = true;
+    });
+
+    document.addEventListener('mouseleave', () => {
+      isMouseInteracting = false;
+    });
+
+    // Toggle settings bar
+    const settingsButton = document.getElementById('settings-button');
+    const settingsBar = document.getElementById('settings-bar');
+    const closeButton = document.getElementById('close-button');
+
+    settingsButton.addEventListener('click', () => {
+      settingsBar.style.display = 'block';
+    });
+
+    closeButton.addEventListener('click', () => {
+      settingsBar.style.display = 'none';
+    });
+
+    // Start the animation
+    updateParticles();
+  </script>
+
+  <!-- Include Font Awesome for the close button -->
+  <script src="https://kit.fontawesome.com/your-font-awesome-kit.js" crossorigin="anonymous"></script>
+</body>
+</html>
