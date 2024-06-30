@@ -2,6 +2,9 @@
 
 This is an interactive particle simulation created using HTML5 canvas and JavaScript. The simulation allows users to adjust various parameters such as particle count, size, speed, repulsion radius, repulsion force, and return force to create different visual effects.
 
+# Things to improve
+1. No close button at setting bar
+2. To-and-fro Motion of particle after interaction
 ## Features
 
 - Adjustable particle count, size, speed, repulsion radius, repulsion force, and return force
