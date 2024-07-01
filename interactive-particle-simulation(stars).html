@@ -2,6 +2,7 @@
 <html>
 <head>
   <title>Interactive Particle Simulation</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <style>
     body {
       margin: 0;
@@ -98,6 +99,8 @@
   </div>
 
   <script>
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
     const canvas = document.getElementById('particle-canvas');
     const ctx = canvas.getContext('2d');
 
@@ -165,14 +168,14 @@
 
     initParticles();
 
-    let mouseX = 0;
-    let mouseY = 0;
-    let isMouseInteracting = false;
+    let interactionX = 0;
+    let interactionY = 0;
+    let isInteracting = false;
 
     function drawStar(x, y, size, color, subColor) {
       ctx.save();
       ctx.translate(x, y);
-      ctx.rotate(Math.PI); // Rotate 180 degrees to fix orientation
+      ctx.rotate(Math.PI);
       ctx.beginPath();
       for (let i = 0; i < 5; i++) {
         ctx.lineTo(Math.cos((i * 4 * Math.PI) / 5) * size,
@@ -182,7 +185,6 @@
       ctx.fillStyle = color;
       ctx.fill();
 
-      // Draw sub-color
       ctx.beginPath();
       for (let i = 0; i < 5; i++) {
         ctx.lineTo(Math.cos((i * 4 * Math.PI) / 5) * size * 0.6,
@@ -201,9 +203,9 @@
       for (let i = 0; i < particles.length; i++) {
         const particle = particles[i];
 
-        if (isMouseInteracting) {
-          const dx = mouseX - particle.x;
-          const dy = mouseY - particle.y;
+        if (isInteracting) {
+          const dx = interactionX - particle.x;
+          const dy = interactionY - particle.y;
           const distance = Math.hypot(dx, dy);
           if (distance < repulsionRadius) {
             const force = (repulsionRadius - distance) / repulsionRadius * repulsionForce;
@@ -212,7 +214,6 @@
           }
         }
 
-        // Apply return force only if particle is not at its initial position
         if (particle.x !== particle.initialX || particle.y !== particle.initialY) {
           const dx = particle.initialX - particle.x;
           const dy = particle.initialY - particle.y;
@@ -220,15 +221,12 @@
           particle.vy += dy * returnForce;
         }
 
-        // Apply velocity
         particle.x += particle.vx;
         particle.y += particle.vy;
 
-        // Apply friction
         particle.vx *= 0.95;
         particle.vy *= 0.95;
 
-        // Keep particles within the canvas boundaries
         particle.x = Math.max(0, Math.min(canvas.width, particle.x));
         particle.y = Math.max(0, Math.min(canvas.height, particle.y));
 
@@ -238,15 +236,53 @@
       requestAnimationFrame(updateParticles);
     }
 
-    canvas.addEventListener('mousemove', (event) => {
-      mouseX = event.clientX;
-      mouseY = event.clientY;
-      isMouseInteracting = true;
-    });
+    function startInteraction(x, y) {
+      interactionX = x;
+      interactionY = y;
+      isInteracting = true;
+    }
 
-    canvas.addEventListener('mouseleave', () => {
-      isMouseInteracting = false;
-    });
+    function moveInteraction(x, y) {
+      if (isInteracting) {
+        interactionX = x;
+        interactionY = y;
+      }
+    }
+
+    function endInteraction() {
+      isInteracting = false;
+    }
+
+    if (isMobile) {
+      // Touch events for mobile
+      canvas.addEventListener('touchstart', (event) => {
+        event.preventDefault();
+        const touch = event.touches[0];
+        startInteraction(touch.clientX, touch.clientY);
+      });
+
+      canvas.addEventListener('touchmove', (event) => {
+        event.preventDefault();
+        const touch = event.touches[0];
+        moveInteraction(touch.clientX, touch.clientY);
+      });
+
+      canvas.addEventListener('touchend', endInteraction);
+      canvas.addEventListener('touchcancel', endInteraction);
+
+      // Set touch-action to none for mobile
+      canvas.style.touchAction = 'none';
+    } else {
+      // Mouse events for desktop
+      canvas.addEventListener('mousemove', (event) => {
+        moveInteraction(event.clientX, event.clientY);
+        isInteracting = true;
+      });
+
+      canvas.addEventListener('mouseleave', () => {
+        isInteracting = false;
+      });
+    }
 
     const settingsButton = document.getElementById('settings-button');
     const settingsBar = document.getElementById('settings-bar');
