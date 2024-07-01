@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optimized Particle Simulation</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+        }
+        button, input[type="file"] {
+            margin: 5px;
+            padding: 5px 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        #settingsModal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            z-index: 20;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .setting {
+            margin-bottom: 10px;
+        }
+        #closeSettings {
+            float: right;
+            cursor: pointer;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="controls">
+        <input type="file" id="imageUpload" accept="image/*">
+        <input type="text" id="imageUrl" placeholder="Enter image URL">
+        <button id="loadUrl">Load URL</button>
+        <button id="settingsBtn">Settings</button>
+        <button id="resetBtn">Reset</button>
+    </div>
+    <div id="settingsModal">
+        <span id="closeSettings">&times;</span>
+        <h2>Settings</h2>
+        <div class="setting">
+            <label for="particleType">Particle Type:</label>
+            <select id="particleType">
+                <option value="circle">Circle</option>
+                <option value="square">Square</option>
+                <option value="text">Text/Emoji</option>
+            </select>
+        </div>
+        <div class="setting">
+            <label for="particleText">Particle Text/Emoji:</label>
+            <input type="text" id="particleText" placeholder="Enter text or emoji">
+        </div>
+        <div class="setting">
+            <label for="particleSize">Particle Size:</label>
+            <input type="range" id="particleSize" min="1" max="10" value="2">
+        </div>
+        <div class="setting">
+            <label for="particleColor">Use Image Colors:</label>
+            <input type="checkbox" id="particleColor" checked>
+        </div>
+        <div class="setting">
+            <label for="singleColor">Single Color:</label>
+            <input type="color" id="singleColor" value="#000000">
+        </div>
+        <div class="setting">
+            <label for="attraction">Attraction Strength:</label>
+            <input type="range" id="attraction" min="0" max="100" value="50">
+        </div>
+        <div class="setting">
+            <label for="repulsion">Repulsion Strength:</label>
+            <input type="range" id="repulsion" min="0" max="100" value="50">
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const controls = {
+            imageUpload: document.getElementById('imageUpload'),
+            imageUrl: document.getElementById('imageUrl'),
+            loadUrl: document.getElementById('loadUrl'),
+            settingsBtn: document.getElementById('settingsBtn'),
+            resetBtn: document.getElementById('resetBtn'),
+            settingsModal: document.getElementById('settingsModal'),
+            closeSettings: document.getElementById('closeSettings'),
+            particleType: document.getElementById('particleType'),
+            particleText: document.getElementById('particleText'),
+            particleSize: document.getElementById('particleSize'),
+            particleColor: document.getElementById('particleColor'),
+            singleColor: document.getElementById('singleColor'),
+            attraction: document.getElementById('attraction'),
+            repulsion: document.getElementById('repulsion')
+        };
+
+        let particles = [];
+        let image = null;
+        let scale = 1;
+        let offsetX = 0;
+        let offsetY = 0;
+        let isSimulationRunning = false;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        resizeCanvas();
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.size = parseInt(controls.particleSize.value);
+                this.baseX = x;
+                this.baseY = y;
+                this.density = Math.random() * 30 + 1;
+            }
+
+            draw() {
+                ctx.fillStyle = controls.particleColor.checked ? this.color : controls.singleColor.value;
+                
+                switch (controls.particleType.value) {
+                    case 'circle':
+                        ctx.beginPath();
+                        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+                    case 'square':
+                        ctx.fillRect(this.x - this.size / 2, this.y - this.size / 2, this.size, this.size);
+                        break;
+                    case 'text':
+                        ctx.font = `${this.size * 2}px Arial`;
+                        ctx.fillText(controls.particleText.value || '●', this.x, this.y);
+                        break;
+                }
+            }
+
+            update(mouse) {
+                const attraction = parseInt(controls.attraction.value) / 50;
+                const repulsion = parseInt(controls.repulsion.value) / 50;
+
+                const dx = mouse.x - this.x;
+                const dy = mouse.y - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < mouse.radius) {
+                    const force = (mouse.radius - distance) / mouse.radius;
+                    this.x -= dx / distance * force * this.density * attraction;
+                    this.y -= dy / distance * force * this.density * attraction;
+                } else {
+                    this.x += (this.baseX - this.x) * 0.1 * repulsion;
+                    this.y += (this.baseY - this.y) * 0.1 * repulsion;
+                }
+            }
+        }
+
+        function initializeParticles() {
+            particles = [];
+            if (!image) return;
+
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+
+            for (let y = 0; y < canvas.height; y += 5) {
+                for (let x = 0; x < canvas.width; x += 5) {
+                    const index = (y * canvas.width + x) * 4;
+                    const alpha = data[index + 3];
+
+                    if (alpha > 128) {
+                        const red = data[index];
+                        const green = data[index + 1];
+                        const blue = data[index + 2];
+                        const color = `rgb(${red},${green},${blue})`;
+
+                        particles.push(new Particle(x, y, color));
+                    }
+                }
+            }
+        }
+
+        function animate() {
+            if (!isSimulationRunning) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.save();
+            ctx.translate(offsetX, offsetY);
+            ctx.scale(scale, scale);
+            
+            const mouse = {
+                x: (mouseX - offsetX) / scale,
+                y: (mouseY - offsetY) / scale,
+                radius: 100
+            };
+
+            for (let particle of particles) {
+                particle.draw();
+                particle.update(mouse);
+            }
+            
+            ctx.restore();
+
+            requestAnimationFrame(animate);
+        }
+
+        async function loadImage(src) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = src;
+            });
+        }
+
+        async function handleImage(src) {
+            try {
+                resetSimulation();
+                image = await loadImage(src);
+                const scale = Math.min(canvas.width / image.width, canvas.height / image.height);
+                const width = image.width * scale;
+                const height = image.height * scale;
+                const x = (canvas.width - width) / 2;
+                const y = (canvas.height - height) / 2;
+                
+                ctx.drawImage(image, x, y, width, height);
+                initializeParticles();
+                startSimulation();
+            } catch (error) {
+                console.error("Error loading image:", error);
+                alert("Failed to load image. Please try again.");
+            }
+        }
+
+        function resetSimulation() {
+            isSimulationRunning = false;
+            particles = [];
+            scale = 1;
+            offsetX = 0;
+            offsetY = 0;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function startSimulation() {
+            if (!isSimulationRunning) {
+                isSimulationRunning = true;
+                animate();
+            }
+        }
+
+        let mouseX = 0, mouseY = 0;
+        canvas.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            mouseX = touch.clientX;
+            mouseY = touch.clientY;
+        });
+
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoom = e.deltaY > 0 ? 0.9 : 1.1;
+            scale *= zoom;
+            
+            offsetX -= (e.clientX - offsetX) * (zoom - 1);
+            offsetY -= (e.clientY - offsetY) * (zoom - 1);
+        });
+
+        controls.imageUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => handleImage(event.target.result);
+                reader.readAsDataURL(file);
+            }
+        });
+
+        controls.loadUrl.addEventListener('click', () => {
+            const url = controls.imageUrl.value.trim();
+            if (url) {
+                handleImage(url);
+            }
+        });
+
+        controls.settingsBtn.addEventListener('click', () => {
+            controls.settingsModal.style.display = 'block';
+        });
+
+        controls.closeSettings.addEventListener('click', () => {
+            controls.settingsModal.style.display = 'none';
+        });
+
+        controls.resetBtn.addEventListener('click', () => {
+            resetSimulation();
+            if (image) {
+                handleImage(image.src);
+            }
+        });
+
+        // Event listeners for settings changes
+        [controls.particleSize, controls.particleType, controls.particleText, 
+         controls.particleColor, controls.singleColor].forEach(control => {
+            control.addEventListener('input', () => {
+                if (image) {
+                    initializeParticles();
+                }
+            });
+        });
+
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            if (image) {
+                handleImage(image.src);
+            }
+        });
+
+        startSimulation();
+    </script>
+</body>
+</html>
