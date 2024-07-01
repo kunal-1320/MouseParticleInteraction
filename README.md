@@ -6,7 +6,10 @@ This is an interactive particle simulation created using HTML5 canvas and JavaSc
 [https://sites.google.com/view/mouse-particle-interaction/home](https://sites.google.com/view/mouse-particle-interaction/home)
 
 # Things to improve
-1. To-and-fro Motion of particle after interaction (in star one)
+1. To-and-fro Motion of particle after interaction (in star one) [FIXED]
+## Note:- 
+- Click two times in setting to open it
+- 
 ## Features
 
 - Adjustable particle count, size, speed, repulsion radius, repulsion force, and return force
@@ -14,6 +17,9 @@ This is an interactive particle simulation created using HTML5 canvas and JavaSc
 - Repulsion of particles when the mouse cursor enters the repulsion radius
 - Particles wrap around the screen edges
 - Colorful 5-pointed star particles with a sub-color effect
+- Now working for both mobile and Computers ( on swiping in mobiles)
+- Also added some more settings in nodes simulation
+- and many other things
 
 ## Usage
 
