@@ -1,6 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Interactive Node Simulation</title>
   <style>
     body {
@@ -8,12 +10,14 @@
       padding: 0;
       background-color: #000;
       overflow: hidden;
+      font-family: Arial, sans-serif;
     }
 
     #particle-canvas {
       position: absolute;
       width: 100%;
       height: 100%;
+      touch-action: none;
     }
 
     #settings-bar {
@@ -25,6 +29,8 @@
       border-radius: 5px;
       z-index: 1;
       display: none;
+      max-height: 80vh;
+      overflow-y: auto;
     }
 
     #settings-button {
@@ -53,9 +59,14 @@
 
     .setting label {
       margin-right: 10px;
+      flex: 1;
     }
 
     .setting input {
+      width: 100px;
+    }
+
+    .setting select {
       width: 100px;
     }
   </style>
@@ -77,7 +88,7 @@
     </div>
     <div class="setting">
       <label for="particleSize">Particle Size:</label>
-      <input type="range" id="particleSize" min="5" max="20" value="10" step="1">
+      <input type="range" id="particleSize" min="1" max="20" value="5" step="1">
     </div>
     <div class="setting">
       <label for="connectionDistance">Connection Distance:</label>
@@ -95,6 +106,42 @@
       <label for="lineColor">Line Color:</label>
       <input type="color" id="lineColor" value="#ffffff">
     </div>
+    <div class="setting">
+      <label for="backgroundColor">Background Color:</label>
+      <input type="color" id="backgroundColor" value="#000000">
+    </div>
+    <div class="setting">
+      <label for="interactionType">Interaction Type:</label>
+      <select id="interactionType">
+        <option value="repulsion">Repulsion</option>
+        <option value="attraction">Attraction</option>
+      </select>
+    </div>
+    <div class="setting">
+      <label for="interactionStrength">Interaction Strength:</label>
+      <input type="range" id="interactionStrength" min="0.1" max="2" value="0.5" step="0.1">
+    </div>
+    <div class="setting">
+      <label for="nodeShape">Node Shape:</label>
+      <select id="nodeShape">
+        <option value="circle">Circle</option>
+        <option value="square">Square</option>
+        <option value="triangle">Triangle</option>
+        <option value="text">Text</option>
+      </select>
+    </div>
+    <div class="setting">
+      <label for="nodeText">Node Text:</label>
+      <input type="text" id="nodeText" value="•" maxlength="1">
+    </div>
+    <div class="setting">
+      <label for="lineDash">Line Style:</label>
+      <select id="lineDash">
+        <option value="solid">Solid</option>
+        <option value="dashed">Dashed</option>
+        <option value="dotted">Dotted</option>
+      </select>
+    </div>
   </div>
 
   <script>
@@ -104,11 +151,17 @@
     canvas.height = window.innerHeight;
 
     let particleCount = 50;
-    let particleSize = 10;
+    let particleSize = 5;
     let connectionDistance = 150;
     let particleSpeed = 0.5;
     let particleColor = '#ffffff';
     let lineColor = '#ffffff';
+    let backgroundColor = '#000000';
+    let interactionType = 'repulsion';
+    let interactionStrength = 0.5;
+    let nodeShape = 'circle';
+    let nodeText = '•';
+    let lineDash = 'solid';
     let particles = [];
 
     const particleCountInput = document.getElementById('particleCount');
@@ -117,30 +170,35 @@
     const particleSpeedInput = document.getElementById('particleSpeed');
     const particleColorInput = document.getElementById('particleColor');
     const lineColorInput = document.getElementById('lineColor');
+    const backgroundColorInput = document.getElementById('backgroundColor');
+    const interactionTypeInput = document.getElementById('interactionType');
+    const interactionStrengthInput = document.getElementById('interactionStrength');
+    const nodeShapeInput = document.getElementById('nodeShape');
+    const nodeTextInput = document.getElementById('nodeText');
+    const lineDashInput = document.getElementById('lineDash');
 
-    particleCountInput.addEventListener('input', () => {
+    function updateSettings() {
       particleCount = parseInt(particleCountInput.value);
-      initParticles();
-    });
-
-    particleSizeInput.addEventListener('input', () => {
       particleSize = parseInt(particleSizeInput.value);
-    });
-
-    connectionDistanceInput.addEventListener('input', () => {
       connectionDistance = parseInt(connectionDistanceInput.value);
-    });
-
-    particleSpeedInput.addEventListener('input', () => {
       particleSpeed = parseFloat(particleSpeedInput.value);
-    });
-
-    particleColorInput.addEventListener('input', () => {
       particleColor = particleColorInput.value;
-    });
-
-    lineColorInput.addEventListener('input', () => {
       lineColor = lineColorInput.value;
+      backgroundColor = backgroundColorInput.value;
+      interactionType = interactionTypeInput.value;
+      interactionStrength = parseFloat(interactionStrengthInput.value);
+      nodeShape = nodeShapeInput.value;
+      nodeText = nodeTextInput.value;
+      lineDash = lineDashInput.value;
+
+      document.body.style.backgroundColor = backgroundColor;
+      initParticles();
+    }
+
+    [particleCountInput, particleSizeInput, connectionDistanceInput, particleSpeedInput, 
+     particleColorInput, lineColorInput, backgroundColorInput, interactionTypeInput, 
+     interactionStrengthInput, nodeShapeInput, nodeTextInput, lineDashInput].forEach(input => {
+      input.addEventListener('input', updateSettings);
     });
 
     function initParticles() {
@@ -157,17 +215,58 @@
 
     let mouseX = canvas.width / 2;
     let mouseY = canvas.height / 2;
-    let isMouseInteracting = false;
+    let isInteracting = false;
+
+    function handleInteraction(x, y) {
+      mouseX = x;
+      mouseY = y;
+      isInteracting = true;
+    }
+
+    function endInteraction() {
+      isInteracting = false;
+    }
 
     canvas.addEventListener('mousemove', (event) => {
-      mouseX = event.clientX;
-      mouseY = event.clientY;
-      isMouseInteracting = true;
+      handleInteraction(event.clientX, event.clientY);
     });
 
-    canvas.addEventListener('mouseleave', () => {
-      isMouseInteracting = false;
-    });
+    canvas.addEventListener('touchmove', (event) => {
+      event.preventDefault();
+      const touch = event.touches[0];
+      handleInteraction(touch.clientX, touch.clientY);
+    }, { passive: false });
+
+    canvas.addEventListener('mouseleave', endInteraction);
+    canvas.addEventListener('touchend', endInteraction);
+
+    function drawNode(x, y) {
+      ctx.fillStyle = particleColor;
+      switch (nodeShape) {
+        case 'circle':
+          ctx.beginPath();
+          ctx.arc(x, y, particleSize, 0, 2 * Math.PI);
+          ctx.fill();
+          break;
+        case 'square':
+          ctx.fillRect(x - particleSize, y - particleSize, particleSize * 2, particleSize * 2);
+          break;
+        case 'triangle':
+          ctx.beginPath();
+          ctx.moveTo(x, y - particleSize);
+          ctx.lineTo(x + particleSize, y + particleSize);
+          ctx.lineTo(x - particleSize, y + particleSize);
+          ctx.closePath();
+          ctx.fill();
+          break;
+        case 'text':
+          ctx.font = `${particleSize * 2}px Arial`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(nodeText, x, y);
+          break;
+      }
+    }
 
     function updateParticles() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -177,14 +276,19 @@
       for (let i = 0; i < particles.length; i++) {
         const particle1 = particles[i];
 
-        if (isMouseInteracting) {
+        if (isInteracting) {
           const dx = mouseX - particle1.x;
           const dy = mouseY - particle1.y;
           const distanceSquared = dx * dx + dy * dy;
           if (distanceSquared < 10000) {
-            const force = (10000 - distanceSquared) / 10000 * 0.5;
-            particle1.vx -= dx * force;
-            particle1.vy -= dy * force;
+            const force = (10000 - distanceSquared) / 10000 * interactionStrength;
+            if (interactionType === 'repulsion') {
+              particle1.vx -= dx * force;
+              particle1.vy -= dy * force;
+            } else {
+              particle1.vx += dx * force;
+              particle1.vy += dy * force;
+            }
           }
         }
 
@@ -194,7 +298,6 @@
         particle1.x += particle1.vx;
         particle1.y += particle1.vy;
 
-        // Keep particles within the canvas boundaries
         if (particle1.x < particleSize) {
           particle1.x = particleSize;
           particle1.vx *= -1;
@@ -222,14 +325,20 @@
             ctx.moveTo(particle1.x, particle1.y);
             ctx.lineTo(particle2.x, particle2.y);
             ctx.strokeStyle = `${lineColor}${Math.floor(opacity * 255).toString(16).padStart(2, '0')}`;
+            
+            if (lineDash === 'dashed') {
+              ctx.setLineDash([5, 5]);
+            } else if (lineDash === 'dotted') {
+              ctx.setLineDash([2, 2]);
+            } else {
+              ctx.setLineDash([]);
+            }
+            
             ctx.stroke();
           }
         }
 
-        ctx.beginPath();
-        ctx.arc(particle1.x, particle1.y, particleSize, 0, 2 * Math.PI);
-        ctx.fillStyle = particleColor;
-        ctx.fill();
+        drawNode(particle1.x, particle1.y);
       }
 
       requestAnimationFrame(updateParticles);
@@ -255,8 +364,7 @@
 
     initParticles();
     updateParticles();
+    updateSettings();
   </script>
-
-  <script src="https://kit.fontawesome.com/your-font-awesome-kit.js" crossorigin="anonymous"></script>
 </body>
 </html>
