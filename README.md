@@ -7,6 +7,7 @@ This is an interactive particle simulation created using HTML5 canvas and JavaSc
 
 # Things to improve
 1. To-and-fro Motion of particle after interaction (in star one) [FIXED]
+2. in image and text code thing one is not working correctly one url thing is not working correctly [ON THIRD FILE]
 # Update 
 Added a third file (check it out)
 ## Note:- 
