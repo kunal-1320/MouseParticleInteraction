@@ -98,15 +98,12 @@
   </div>
 
   <script>
-    // Get the canvas element
     const canvas = document.getElementById('particle-canvas');
     const ctx = canvas.getContext('2d');
 
-    // Set the canvas size to the window size
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    // Particle properties
     let particleCount = 300;
     let particleSize = 12;
     let particleSpeed = 1.5;
@@ -114,7 +111,6 @@
     let repulsionForce = 0.6;
     let returnForce = 0.02;
 
-    // Get settings from the UI
     const particleCountInput = document.getElementById('particleCount');
     const particleSizeInput = document.getElementById('particleSize');
     const particleSpeedInput = document.getElementById('particleSpeed');
@@ -147,20 +143,20 @@
       returnForce = parseFloat(returnForceInput.value);
     });
 
-    // Particle array
     const particles = [];
 
-    // Initialize particles
     function initParticles() {
       particles.length = 0;
       for (let i = 0; i < particleCount; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
         particles.push({
-          x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height,
+          x,
+          y,
           vx: 0,
           vy: 0,
-          initialX: Math.random() * canvas.width,
-          initialY: Math.random() * canvas.height,
+          initialX: x,
+          initialY: y,
           color: `hsl(${Math.random() * 360}, 100%, 50%)`,
           subColor: `hsl(${Math.random() * 360}, 100%, 70%)`
         });
@@ -169,22 +165,18 @@
 
     initParticles();
 
-    // Mouse position
     let mouseX = 0;
     let mouseY = 0;
     let isMouseInteracting = false;
 
-    // Draw a 5-pointed star
     function drawStar(x, y, size, color, subColor) {
       ctx.save();
       ctx.translate(x, y);
+      ctx.rotate(Math.PI); // Rotate 180 degrees to fix orientation
       ctx.beginPath();
-      ctx.moveTo(0, -size);
       for (let i = 0; i < 5; i++) {
-        ctx.rotate(Math.PI / 5);
-        ctx.lineTo(0, -size);
-        ctx.rotate(Math.PI / 5);
-        ctx.lineTo(0, size / 3);
+        ctx.lineTo(Math.cos((i * 4 * Math.PI) / 5) * size,
+                   Math.sin((i * 4 * Math.PI) / 5) * size);
       }
       ctx.closePath();
       ctx.fillStyle = color;
@@ -192,12 +184,9 @@
 
       // Draw sub-color
       ctx.beginPath();
-      ctx.moveTo(0, -size * 0.8);
       for (let i = 0; i < 5; i++) {
-        ctx.rotate(Math.PI / 5);
-        ctx.lineTo(0, -size * 0.8);
-        ctx.rotate(Math.PI / 5);
-        ctx.lineTo(0, size / 4);
+        ctx.lineTo(Math.cos((i * 4 * Math.PI) / 5) * size * 0.6,
+                   Math.sin((i * 4 * Math.PI) / 5) * size * 0.6);
       }
       ctx.closePath();
       ctx.fillStyle = subColor;
@@ -206,39 +195,16 @@
       ctx.restore();
     }
 
-    // Update particle positions based on mouse position
     function updateParticles() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       for (let i = 0; i < particles.length; i++) {
         const particle = particles[i];
 
-        // Smooth return to initial position
-        const dx = particle.initialX - particle.x;
-        const dy = particle.initialY - particle.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        if (distance > 1) {
-          particle.vx += dx * returnForce;
-          particle.vy += dy * returnForce;
-        } else {
-          particle.vx = 0;
-          particle.vy = 0;
-          particle.x = particle.initialX;
-          particle.y = particle.initialY;
-        }
-
-        // Limit velocity to prevent erratic movement
-        const velocity = Math.sqrt(particle.vx * particle.vx + particle.vy * particle.vy);
-        if (velocity > particleSpeed) {
-          particle.vx *= particleSpeed / velocity;
-          particle.vy *= particleSpeed / velocity;
-        }
-
-        // Repulsion
         if (isMouseInteracting) {
           const dx = mouseX - particle.x;
           const dy = mouseY - particle.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
+          const distance = Math.hypot(dx, dy);
           if (distance < repulsionRadius) {
             const force = (repulsionRadius - distance) / repulsionRadius * repulsionForce;
             particle.vx -= dx * force;
@@ -246,9 +212,25 @@
           }
         }
 
+        // Apply return force only if particle is not at its initial position
+        if (particle.x !== particle.initialX || particle.y !== particle.initialY) {
+          const dx = particle.initialX - particle.x;
+          const dy = particle.initialY - particle.y;
+          particle.vx += dx * returnForce;
+          particle.vy += dy * returnForce;
+        }
+
+        // Apply velocity
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+
+        // Apply friction
+        particle.vx *= 0.95;
+        particle.vy *= 0.95;
+
         // Keep particles within the canvas boundaries
-        particle.x = Math.max(0, Math.min(canvas.width, particle.x + particle.vx));
-        particle.y = Math.max(0, Math.min(canvas.height, particle.y + particle.vy));
+        particle.x = Math.max(0, Math.min(canvas.width, particle.x));
+        particle.y = Math.max(0, Math.min(canvas.height, particle.y));
 
         drawStar(particle.x, particle.y, particleSize, particle.color, particle.subColor);
       }
@@ -256,18 +238,16 @@
       requestAnimationFrame(updateParticles);
     }
 
-    // Update mouse position and interaction state
-    document.addEventListener('mousemove', (event) => {
+    canvas.addEventListener('mousemove', (event) => {
       mouseX = event.clientX;
       mouseY = event.clientY;
       isMouseInteracting = true;
     });
 
-    document.addEventListener('mouseleave', () => {
+    canvas.addEventListener('mouseleave', () => {
       isMouseInteracting = false;
     });
 
-    // Toggle settings bar
     const settingsButton = document.getElementById('settings-button');
     const settingsBar = document.getElementById('settings-bar');
     const closeButton = document.getElementById('close-button');
@@ -280,11 +260,15 @@
       settingsBar.style.display = 'none';
     });
 
-    // Start the animation
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      initParticles();
+    });
+
     updateParticles();
   </script>
 
-  <!-- Include Font Awesome for the close button -->
   <script src="https://kit.fontawesome.com/your-font-awesome-kit.js" crossorigin="anonymous"></script>
 </body>
 </html>
